@@ -14,6 +14,7 @@ class Kiwoom(QAxWidget):
         super().__init__()
         self._create_kiwoom_instance()
         self._set_signal_slots()
+        self.reset_opw00018_output()
 
     def _create_kiwoom_instance(self):
         self.setControl("KHOPENAPI.KHOpenAPICtrl.1")
@@ -60,7 +61,7 @@ class Kiwoom(QAxWidget):
         return ret
 
     def _comm_get_data(self, code, real_type, field_name, index, item_name):
-        ret = self.dynamicCall("CommGetData(QString, QString, QString, int, QString", code, real_type, field_name, index, item_name)
+        ret = self.dynamicCall("CommGetData(QString, QString, QString, int, QString)", code, real_type, field_name, index, item_name)
         return ret.strip()
 
     def _receive_tr_data(self, screen_no, rqname, trcode, record_name, next, unused1, unused2, unused3, unused4):
@@ -124,7 +125,7 @@ class Kiwoom(QAxWidget):
 
     def _opw00001(self, rqname, trcode):
         self.d2_deposit = self._comm_get_data(trcode, "", rqname, 0, "d+2추정예수금")
-        self.d2_deposit = kiwoom.change_format(self.d2_deposit)
+        self.d2_deposit = Kiwoom.change_format(self.d2_deposit)
 
     def _opw00018(self, rqname, trcode):
         total_purchase_price = self._comm_get_data(trcode, "", rqname, 0, "총매입금액")
@@ -133,17 +134,47 @@ class Kiwoom(QAxWidget):
         total_earning_rate = self._comm_get_data(trcode, "", rqname, 0, "총수익률(%)")
         estimated_deposit = self._comm_get_data(trcode, "", rqname, 0, "추정예탁자산")
 
-        print(Kiwoom.change_format(total_purchase_price))
-        print(Kiwoom.change_format(total_eval_price))
-        print(Kiwoom.change_format(total_eval_profit_loss_price))
-        print(Kiwoom.change_format(total_earning_rate))
-        print(Kiwoom.change_format(estimated_deposit))
+        if self.get_server_gubun():
+            total_earning_rate = float(total_earning_rate) / 100
+            total_earning_rate = str(total_earning_rate)
+
+        self.opw00018_output['single'].append(Kiwoom.change_format(total_purchase_price))
+        self.opw00018_output['single'].append(Kiwoom.change_format(total_eval_price))
+        self.opw00018_output['single'].append(Kiwoom.change_format(total_eval_price))
+        self.opw00018_output['single'].append(Kiwoom.change_format(total_eval_profit_loss_price))
+        self.opw00018_output['single'].append(Kiwoom.change_format(total_earning_rate))
+        self.opw00018_output['single'].append(Kiwoom.change_format(estimated_deposit))
+
+        # multi data
+        rows = self._get_repeat_cnt(trcode, rqname)
+        for i in range(rows):
+            name = self._comm_get_data(trcode, "", rqname, i, "종목명")
+            quantity = self._comm_get_data(trcode, "", rqname, i, "보유수량")
+            purchase_price = self._comm_get_data(trcode, "", rqname, i, "매입가")
+            current_price = self._comm_get_data(trcode, "", rqname, i, "현재가")
+            eval_profit_loss_price = self._comm_get_data(trcode, "", rqname, i, "평가손익")
+            earning_rate = self._comm_get_data(trcode, "", rqname, i, "수익률(%)")
+
+            quantity = kiwoom.change_format(quantity)
+            purchase_price = kiwoom.change_format(purchase_price)
+            current_price = kiwoom.change_format(current_price)
+            eval_profit_loss_price = kiwoom.change_format(eval_profit_loss_price)
+            earning_rate = kiwoom.change_format2(earning_rate)
+
+            self.opw00018_output['multi'].append([name, quantity, purchase_price, current_price, eval_profit_loss_price, earning_rate])
+
+    def reset_opw00018_output(self):
+        self.opw00018_output = {'single': [], 'multi': []}
+
+    def get_server_gubun(self):
+        ret = self.dynamicCall("KOA_Functions(QString, QString)", "GetServerGubun", "")
+        return ret
 
     @staticmethod
     def change_format(data):
         strip_data = data.lstrip('-0')
         if strip_data == '':
-            strip_data == '0'
+            strip_data = '0'
 
         try:
             format_data = format(int(strip_data), ',d')
@@ -155,6 +186,20 @@ class Kiwoom(QAxWidget):
             format_data = '-' + format_data
 
         return format_data
+
+    @staticmethod
+    def change_format2(data):
+        strip_data = data.lstrip('-0')
+        if strip_data == '':
+            strip_data = '0'
+
+        if strip_data.startswith('.'):
+            strip_data = '0' + strip_data
+
+        if data.startswith('-'):
+            format_data = '-' + strip_data
+
+        return strip_data
 
 
 if __name__ == "__main__":
