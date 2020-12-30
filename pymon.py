@@ -20,12 +20,15 @@ class PyMon:
         self.kosdaq_codes = self.kiwoom.get_code_list_by_market(MARKET_KOSDAQ)
 
     def run(self):
+        buy_list = []
         num = len(self.kosdaq_codes)
 
         for i, code in enumerate(self.kosdaq_codes):
             print(i, '/', num)
             if self.check_speedy_rising_volume(code):
-                print("급등주: ", code)
+                buy_list.append(code)
+
+            self.update_buy_list(buy_list)
 
     def get_ohlcv(self, code, start):
         self.kiwoom.ohlcv = {'date': [], 'open': [], 'high': [], 'low': [], 'close': [], 'volume': []}
@@ -61,6 +64,12 @@ class PyMon:
         avg_vol20 = sum_vol20 / 20
         if today_vol > avg_vol20 * 10:
             return True
+
+    def update_buy_list(self, buy_list):
+        f = open("buy_list.txt", "wt")
+        for code in buy_list:
+            f.writelines("매수;%ㄴ;시장가;10;0;매수전\n" % (code))
+        f.close()
 
 
 if __name__ == "__main__":
