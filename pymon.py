@@ -66,9 +66,9 @@ class PyMon:
             return True
 
     def update_buy_list(self, buy_list):
-        f = open("buy_list.txt", "wt")
+        f = open("buy_list.txt", "wt", encoding='UTF8')
         for code in buy_list:
-            f.writelines("매수;%ㄴ;시장가;10;0;매수전\n" % (code))
+            f.writelines("매수;%s;시장가;10;0;매수전\n" % (code))
         f.close()
 
 
